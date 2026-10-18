@@ -25,7 +25,6 @@ self.addEventListener('fetch', (e) => {
     caches.match(e.request).then((cached) => {
       return cached || fetch(e.request).then((response) => {
         if (e.request.mode === 'navigate' || (e.request.headers.get('accept') || '').includes('html')) {
-          // Don't cache dynamic responses for network requests
         }
         return response;
       });

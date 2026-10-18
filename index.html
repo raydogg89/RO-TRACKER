@@ -3,12 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto Tech RO Tracker</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1f6f54">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-<title>Auto Tech RO Tracker</title>
 <style>
   :root {
     --bg: #f4f5f7;
@@ -132,7 +131,57 @@
     .day-cell { min-height: 44px; }
     .day-hrs { font-size: 16px; }
     .week-total { border: 2px solid #000; }
+    .print-header { display: block; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px; font-size: 14px; }
+    .edit-cell, .date-range-filter, .import-control { display: none; }
   }
+
+  /* ===== NEW UI COMPONENTS ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: var(--radius);
+    padding: 22px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.2);
+  }
+  .modal h3 { margin: 0 0 12px 0; font-size: 17px; }
+  .modal .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .modal .row > * { flex: 1; min-width: 120px; }
+  .modal .field { margin-bottom: 10px; }
+  .modal .field label { font-size: 13px; }
+
+  .edit-cell { display: flex; gap: 4px; align-items: center; }
+  .edit-cell button { padding: 3px 8px; font-size: 12px; }
+  .edit-cell .btn { padding: 3px 10px; font-size: 12px; }
+  .edit-cell .btn.readonly { padding: 3px 10px; font-size: 12px; background: var(--bg); border-color: var(--border); }
+
+  .date-range-filter { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .date-range-filter label { font-size: 13px; color: var(--muted); }
+  .date-range-filter input { width: 140px; }
+
+  .import-control { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .import-control input[type=file] { font-size: 13px; }
+  .import-status { font-size: 13px; color: var(--muted); min-height: 20px; }
+
+  .hour-input-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .hour-input-row input { width: 100px; }
+
+  .save-indicator {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #1f6f54; color: #fff; padding: 10px 20px; border-radius: 6px;
+    font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999;
+  }
+  .save-indicator.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -218,6 +267,29 @@
         <div id="ocr-notes" style="font-size:13px;color:var(--muted);margin-top:4px;"></div>
       </div>
       <button class="btn" id="add-to-log-btn" style="width:100%;margin-top:10px;">Add to RO Log</button>
+
+    <div class="modal-overlay" id="hour-modal">
+      <div class="modal">
+        <h3>Add Labor Hours</h3>
+        <div class="field">
+          <label>Date</label>
+          <input id="hour-date" type="date">
+          <span id="hour-date-label" style="font-size:13px;color:var(--muted);display:block;margin-top:4px;"></span>
+        </div>
+        <div class="field">
+          <label>Hours</label>
+          <div class="hour-input-row">
+            <input id="hour-input" type="number" step="0.25" min="0" value="1" style="flex:1;">
+            <button class="btn" id="hour-save-btn">Add</button>
+            <button class="btn secondary" id="hour-cancel-btn">Cancel</button>
+          </div>
+        </div>
+        <div style="margin-top:8px;display:flex;justify-content:flex-end;">
+          <button class="btn secondary" id="hour-cancel-btn2">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     </div>
   </section>
 
@@ -225,6 +297,18 @@
     <h2>RO Log</h2>
     <div class="row" style="margin-bottom:10px;">
       <input id="log-search" type="text" placeholder="Search RO number, type, lines…" style="width:260px;">
+      <div class="date-range-filter" style="margin-left:10px;">
+        <label>From:</label>
+        <input id="filter-from" type="date">
+        <label>To:</label>
+        <input id="filter-to" type="date">
+        <button class="btn secondary" id="clear-filter-btn" style="padding:6px 12px;font-size:13px;">Clear</button>
+      </div>
+      <div class="import-control">
+        <button class="btn secondary" id="import-btn">Import CSV</button>
+        <input type="file" id="import-input" accept=".csv" style="display:none;">
+        <span class="import-status" id="import-status"></span>
+      </div>
       <button class="btn secondary" id="export-btn">Export CSV</button>
       <button class="btn secondary" id="clear-log-btn">Clear all</button>
     </div>
@@ -238,14 +322,24 @@
       <span id="week-label" style="font-weight:600;"></span>
       <button id="next-week">Next</button>
     </div>
-    <p style="font-size:13px;color:var(--muted);margin:0 0 10px 0;">Click any day to add labor for that date. <span id="workable-note"></span></p>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 10px 0;">Click any day to add labor hours. <span id="workable-note"></span></p>
     <div class="week-grid" id="week-grid"></div>
     <div class="week-total">
       <span class="label">Week Total (Sun–Sat)</span>
       <span class="value" id="week-total">0.0</span>
     </div>
-    <div class="field" style="margin-top:10px;">
-      <label>Print this week (US Letter PDF)</label>
+    <div class="hour-input-row" style="margin-top:10px;">
+      <div class="hour-input-row">
+        <label>Hours:</label>
+        <input id="hour-input" type="number" step="0.25" min="0" value="1" style="width:100px;">
+        <button class="btn" id="hour-add-btn">Add to Day</button>
+      </div>
+      <div style="margin-left:10px;">
+        <label>For date:</label>
+        <input id="hour-date" type="date">
+      </div>
+    </div>
+    <div style="margin-top:10px;">
       <button class="btn secondary" id="print-btn">Print Weekly Summary</button>
     </div>
   </section>
@@ -266,6 +360,7 @@
   </section>
 
   <div class="toast" id="toast"></div>
+  <div class="save-indicator" id="save-indicator">Saved</div>
 
 </main>
 
@@ -276,6 +371,7 @@
 /* ================= DATA ================= */
 const STORAGE_KEY = 'auto_ro_tracker_v1';
 let state = load();
+let isDirty = false;
 
 function defaultState() {
   return {
@@ -293,8 +389,20 @@ function load() {
 }
 function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) { console.warn('save failed', e); }
+  isDirty = false;
+  const indicator = document.getElementById('save-indicator');
+  if (indicator) { indicator.classList.remove('show'); }
+}
+function markDirty() { isDirty = true; }
+function showSaveIndicator() {
+  const indicator = document.getElementById('save-indicator');
+  if (indicator && isDirty) {
+    indicator.classList.add('show');
+    setTimeout(() => { if (isDirty) indicator.classList.remove('show'); }, 5000);
+  }
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
 
 /* ================= HELPERS ================= */
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -342,26 +450,35 @@ function showView(name) {
 function renderLog() {
   const tbody = document.getElementById('ro-body');
   const q = (document.getElementById('log-search')||'').value.trim().toLowerCase();
+  const fFrom = (document.getElementById('filter-from')||'').value;
+  const fTo = (document.getElementById('filter-to')||'').value;
   const rows = state.roLog.slice().sort((a,b) => (b.ts||0) - (a.ts||0));
   const filtered = q ? rows.filter(r =>
     (r.roNumber||'').toLowerCase().includes(q) ||
     (r.jobType||'').toLowerCase().includes(q) ||
     (r.lines||[]).some(l => l.toLowerCase().includes(q))
-  ) : rows;
+  ) : rows.filter(r => {
+    if (fFrom && r.date < fFrom) return false;
+    if (fTo && r.date > fTo) return false;
+    return true;
+  });
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No RO records yet. Go to Scanner to add one.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No RO records match your filter.</td></tr>`;
     return;
   }
   let html = `<tr><th>RO #</th><th>Date</th><th>Type</th><th>Lines</th><th>Hours</th><th></th></tr>`;
   for (const r of filtered) {
     const lines = (r.lines||[]).join(', ');
     html += `<tr>
-      <td><strong>${escapeHtml(r.roNumber||'')}</strong></td>
+      <td style="font-size:13px;"><strong>${escapeHtml(r.roNumber||'')}</strong></td>
       <td>${r.date || ''}</td>
       <td><span class="badge">${escapeHtml(r.jobType||'')}</span></td>
       <td style="font-size:13px;">${escapeHtml(lines) || '—'}</td>
       <td style="text-align:right;">${formatHours(r.hours||0)}</td>
-      <td style="white-space:nowrap;"><button class="btn secondary" style="padding:4px 10px;font-size:12px;" data-del="${r.id}">Delete</button></td>
+      <td class="edit-cell">
+        <button class="btn readonly" data-edit="${r.id}">Edit</button>
+        <button class="btn secondary" style="padding:3px 10px;font-size:12px;" data-del="${r.id}">Delete</button>
+      </td>
     </tr>`;
   }
   tbody.innerHTML = html;
@@ -389,7 +506,7 @@ function renderSettings() {
       const t = inp.dataset.type;
       if (t && state.jobTypeDefaults[t] !== parseFloat(inp.value)) {
         state.jobTypeDefaults[t] = parseFloat(inp.value) || 0;
-        save(); renderSettings(); toast('Saved.');
+        save(); renderSettings(); markDirty(); showSaveIndicator();
       }
     });
   });
@@ -414,12 +531,12 @@ function renderWeekly() {
     html += '<div class="' + dayCls.trim() + '" data-date="' + dates[i] + '">' +
       '<div class="day-name">' + DAY_SHORT_SORT[i] + ' ' + d.getDate() + '</div>' +
       '<div class="day-hrs">' + formatHours(getHoursForDate(dates[i])) + '</div>' +
-      '<div class="day-edit">Add hours</div>' +
+      '<div class="day-edit">+</div>' +
     '</div>';
   }
   grid.innerHTML = html;
   grid.querySelectorAll('.day-cell').forEach(cell => {
-    cell.addEventListener('click', () => { const date = cell.dataset.date; addHoursToDate(date); });
+    cell.addEventListener('click', () => { const date = cell.dataset.date; openHourModal(date); });
   });
 
   const total = dates.reduce((s,d) => s + getHoursForDate(d), 0);
@@ -609,20 +726,37 @@ function renderLines(detected) {
   }
 }
 
-/* ================= HOURS MODAL ================= */
-function addHoursToDate(date) {
+/* ================= HOURLY MODAL ================= */
+function openHourModal(date) {
+  const modal = document.getElementById('hour-modal');
   const existing = state.roLog.filter(r => r.date === date);
   const current = getHoursForDate(date);
+  const dateLabel = dateToLabel(parseDate(date));
+  document.getElementById('hour-date').value = date;
+  document.getElementById('hour-input').value = existing.length ? current : 0;
+  document.getElementById('hour-date-label').textContent = dateLabel;
+  modal.classList.add('show');
+  document.getElementById('hour-input').focus();
+}
+
+function closeHourModal() {
+  document.getElementById('hour-modal').classList.remove('show');
+}
+
+function saveHourEntry() {
+  const date = document.getElementById('hour-date').value;
+  let hours = parseFloat(document.getElementById('hour-input').value);
+  if (isNaN(hours) || hours < 0) { hours = 0; }
+  if (hours === 0) { toast('No hours entered.'); closeHourModal(); return; }
+  const existing = state.roLog.filter(r => r.date === date);
   if (existing.length) {
-    if (!confirm('This date already has ROs. Add ' + formatHours(current) + ' more hours?')) return;
-  }
-  const hours = parseFloat(prompt('Enter labor hours for this date?', current || 0)) || 0;
-  if (hours < 0) { toast('Hours must be 0 or more.'); return; }
-  if (hours === 0) { toast('No hours added.'); return; }
-  if (!state.roLog.some(r => r.date === date)) {
+    // Add to existing hours
+    const e = existing[0];
+    e.hours += hours;
+  } else {
     state.roLog.push({ id: uid(), roNumber: 'manual', date, jobType: 'Misc', hours, lines: [], ts: Date.now() });
   }
-  save(); renderLog(); renderWeekly();
+  save(); renderLog(); renderWeekly(); closeHourModal();
   toast('Added ' + formatHours(hours) + ' hrs to ' + dateToLabel(parseDate(date)) + '.');
 }
 
@@ -647,8 +781,8 @@ function addToLog() {
 
   const entry = { id: uid(), roNumber: roNumber || '(none)', date, jobType, hours, lines, ts: Date.now() };
   state.roLog.push(entry);
+  markDirty(); showSaveIndicator();
   save();
-
   document.getElementById('ro-number').value = '';
   document.getElementById('ro-date').value = '';
   document.getElementById('job-type').value = 'Repair';
@@ -676,14 +810,13 @@ function escapeHtml(s) {
 
 function exportCSV() {
   if (!state.roLog.length) { toast('No RO records to export.'); return; }
-  const header = ['RO Number','Date','Job Type','Lines','Hours','Notes'];
+  const header = ['RO Number','Date','Job Type','Lines','Hours'];
   const rows = state.roLog.map(r => [
     r.roNumber || '',
     r.date || '',
     r.jobType || '',
     (r.lines || []).join('; '),
     r.hours || 0,
-    r.notes || ''
   ]);
   const csv = [header.join(','), ...rows.map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(','))].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -696,6 +829,40 @@ function exportCSV() {
   toast('Exported ' + state.roLog.length + ' RO(s).');
 }
 
+function importCSV(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const text = reader.result;
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length < 2) { toast('CSV file is empty or has no data.'); return; }
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const roCol = headers.findIndex(h => h.includes('ro'));
+      const dateCol = headers.findIndex(h => h.includes('date'));
+      const typeCol = headers.findIndex(h => h.includes('type') || h.includes('job'));
+      const hoursCol = headers.findIndex(h => h.includes('hour'));
+      if (roCol === -1) { toast('CSV missing RO Number column.'); return; }
+      const imported = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim());
+        const roNumber = cols[roCol] || '';
+        const date = cols[dateCol] || '';
+        const jobType = cols[typeCol] || 'Repair';
+        const hours = parseFloat(cols[hoursCol]) || 0;
+        if (!date) { toast('Skipped row without date: ' + lines[i]); continue; }
+        imported.push({ id: uid(), roNumber: roNumber || '(none)', date, jobType, hours, lines: [], ts: Date.now() });
+      }
+      if (imported.length === 0) { toast('No valid rows found.'); return; }
+      state.roLog = imported.concat(state.roLog);
+      save(); renderLog(); renderWeekly();
+      toast('Imported ' + imported.length + ' RO(s).');
+    } catch(e) {
+      toast('Import failed: ' + e.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
 /* ================= INIT ================= */
 function init() {
   document.addEventListener('DOMContentLoaded', () => {
@@ -706,6 +873,7 @@ function init() {
     a.addEventListener('click', () => showView(a.dataset.view));
   });
 
+  // Scanner
   document.getElementById('camera-btn').addEventListener('click', startCamera);
   document.getElementById('clear-btn').addEventListener('click', () => {
     stopCamera();
@@ -749,18 +917,22 @@ function init() {
     const inp = document.getElementById('new-line');
     if (inp.value.trim()) {
       state.linesDefaults.push(inp.value.trim());
-      save();
-      renderSettings();
-      renderLog();
-      renderWeekly();
+      save(); renderSettings(); markDirty(); showSaveIndicator();
       inp.value = '';
     }
   });
   document.getElementById('new-line').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('add-line-btn').click(); });
-
   document.getElementById('add-to-log-btn').addEventListener('click', addToLog);
 
+  // Log
   document.getElementById('log-search').addEventListener('input', renderLog);
+  document.getElementById('filter-from').addEventListener('change', renderLog);
+  document.getElementById('filter-to').addEventListener('change', renderLog);
+  document.getElementById('clear-filter-btn').addEventListener('click', () => {
+    document.getElementById('filter-from').value = '';
+    document.getElementById('filter-to').value = '';
+    renderLog();
+  });
   document.getElementById('export-btn').addEventListener('click', exportCSV);
   document.getElementById('clear-log-btn').addEventListener('click', () => {
     if (state.roLog.length && confirm('Delete all RO records?')) {
@@ -768,13 +940,37 @@ function init() {
       save(); renderLog(); renderWeekly(); toast('Log cleared.');
     }
   });
+  document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-input').click());
+  document.getElementById('import-input').addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if (f) importCSV(f);
+    e.target.value = '';
+  });
 
+  // Edit
+  document.querySelectorAll('[data-edit]').forEach(b => {
+    b.addEventListener('click', () => {
+      const id = b.dataset.edit;
+      const entry = state.roLog.find(r => r.id === id);
+      if (!entry) return;
+      const oldRo = entry.roNumber;
+      const newRo = prompt('Edit RO number:', entry.roNumber);
+      if (newRo !== null && newRo.trim() !== oldRo) {
+        entry.roNumber = newRo.trim() || '(none)';
+        entry.lines = [];
+        toast('RO number updated.');
+      }
+      renderLog();
+    });
+  });
+
+  // Weekly
   document.getElementById('prev-week').addEventListener('click', () => {
     const now = new Date();
     const sun = sundayOfWeek(formatDateUS(now));
     const d = parseDate(sun);
     d.setDate(d.getDate() - 7);
-    renderWeeklyWithSun(formatDateUS(d));
+    renderWeekly();
     renderLog();
   });
   document.getElementById('next-week').addEventListener('click', () => {
@@ -782,28 +978,47 @@ function init() {
     const sun = sundayOfWeek(formatDateUS(now));
     const d = parseDate(sun);
     d.setDate(d.getDate() + 7);
-    renderWeeklyWithSun(formatDateUS(d));
+    renderWeekly();
     renderLog();
+  });
+  document.getElementById('hour-save-btn').addEventListener('click', saveHourEntry);
+  document.getElementById('hour-cancel-btn').addEventListener('click', closeHourModal);
+  document.getElementById('hour-cancel-btn2').addEventListener('click', closeHourModal);
+  document.getElementById('hour-date').addEventListener('change', () => {
+    const date = document.getElementById('hour-date').value;
+    const existing = state.roLog.filter(r => r.date === date);
+    const current = existing.length ? getHoursForDate(date) : 0;
+    document.getElementById('hour-input').value = existing.length ? current : 0;
   });
   document.getElementById('print-btn').addEventListener('click', printWeekly);
 
+  // Settings
   document.getElementById('add-type-btn').addEventListener('click', () => {
     const t = prompt('New job type name:');
     if (t && t.trim()) {
       state.jobTypeDefaults[t.trim()] = 0;
-      save(); renderSettings(); toast('Type added.');
+      save(); renderSettings(); markDirty(); showSaveIndicator();
+      toast('Type added.');
     }
   });
   document.getElementById('add-line-defaults-btn').addEventListener('click', () => {
     const inp = document.getElementById('new-line-default');
     if (inp.value.trim()) {
       state.linesDefaults.push(inp.value.trim());
-      save(); renderSettings();
+      save(); renderSettings(); markDirty(); showSaveIndicator();
       inp.value = '';
     }
   });
   document.getElementById('new-line-default').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('add-line-defaults-btn').click();
+  });
+
+  // Auto-save
+  window.addEventListener('beforeunload', () => {
+    if (isDirty) {
+      // Just save; browser will handle the unload prompt
+      save();
+    }
   });
 
   renderWeekly();
@@ -823,12 +1038,12 @@ function renderWeeklyWithSun(sun) {
     html += '<div class="' + dayCls.trim() + '" data-date="' + dates[i] + '">' +
       '<div class="day-name">' + DAY_SHORT_SORT[i] + ' ' + d.getDate() + '</div>' +
       '<div class="day-hrs">' + formatHours(getHoursForDate(dates[i])) + '</div>' +
-      '<div class="day-edit">Add hours</div>' +
+      '<div class="day-edit">+</div>' +
     '</div>';
   }
   grid.innerHTML = html;
   grid.querySelectorAll('.day-cell').forEach(cell => {
-    cell.addEventListener('click', () => addHoursToDate(cell.dataset.date));
+    cell.addEventListener('click', () => openHourModal(cell.dataset.date));
   });
   const total = dates.reduce((s,d) => s + getHoursForDate(d), 0);
   document.getElementById('week-total').textContent = formatHours(total);
@@ -846,10 +1061,6 @@ function printWeekly() {
   const sun = sundayOfWeek(formatDateUS(now));
   renderWeeklyWithSun(sun);
   window.print();
-}
-
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  navigator.serviceWorker.register('service-worker.js').catch(() => {});
 }
 
 document.addEventListener('DOMContentLoaded', init);
