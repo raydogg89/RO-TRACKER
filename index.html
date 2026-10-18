@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f6f54">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<title>Auto Tech RO Tracker</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --border: #d9dde2;
+    --text: #1f2933;
+    --muted: #6b7280;
+    --accent: #1f6f54;
+    --accent-dark: #16563f;
+    --accent-soft: #e7f0ea;
+    --danger: #b3261e;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+  }
+  header h1 { margin: 0 0 10px 0; font-size: 20px; }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  nav a {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 14px;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  nav a:hover, nav a.active { background: var(--accent-soft); color: var(--accent-dark); }
+  main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 18px;
+  }
+  h2 { font-size: 17px; margin: 0 0 12px 0; }
+  .field { margin-bottom: 12px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  input, select, textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fff;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn:hover { background: var(--accent-dark); }
+  .btn.secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  #video-box { position: relative; width: 100%; max-width: 560px; margin: 0 auto; border-radius: var(--radius); overflow: hidden; border: 2px solid var(--border); background: #000; }
+  #video-box video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+  #scan-frame { position: absolute; top: 16px; left: 16px; right: 16px; bottom: 16px; border: 3px solid #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,.45); display: none; }
+  #scan-frame.show { display: block; }
+  .scan-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .scan-actions .btn { flex: 1; min-width: 120px; }
+  #photo-preview { display: none; margin-top: 10px; }
+  #photo-preview img { max-width: 100%; max-height: 320px; border-radius: 6px; }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 600px) { .field-grid { grid-template-columns: 1fr; } }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    background: var(--accent-soft); color: var(--accent-dark);
+  }
+  .line-chip {
+    display: inline-block; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px;
+    font-size: 13px; margin: 4px 4px 4px 0; background: #fff;
+  }
+  .line-chip input { position: relative; top: -1px; margin-right: 4px; }
+  .empty-state { text-align: center; color: var(--muted); padding: 24px 0; }
+  .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 14px; }
+  .day-header, .day-cell { border: 1px solid var(--border); border-radius: 6px; padding: 8px; text-align: center; min-height: 80px; }
+  .day-header { background: var(--bg); font-weight: 600; font-size: 13px; color: var(--muted); }
+  .day-cell { cursor: pointer; }
+  .day-cell .day-name { font-size: 12px; font-weight: 600; }
+  .day-cell .day-hrs { font-size: 22px; font-weight: 700; color: var(--accent); }
+  .day-cell .day-edit { font-size: 11px; color: var(--muted); cursor: pointer; }
+  .day-cell.workable { background: var(--accent-soft); border-color: var(--accent); }
+  .day-cell.workable .day-hrs { color: var(--accent-dark); }
+  .day-cell.today { border-color: var(--accent); }
+  .week-total { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: var(--radius); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .week-total .label { font-weight: 600; }
+  .week-total .value { font-size: 28px; font-weight: 700; color: var(--accent-dark); }
+  .week-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .week-nav button { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 14px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1f2933; color: #fff; padding: 10px 18px; border-radius: 6px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; }
+  footer { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
+  @media print {
+    body { background: #fff; }
+    header, nav, .btn, footer { display: none !important; }
+    main { padding: 0; max-width: 100%; }
+    .card { border: none; padding: 0; box-shadow: none; break-inside: avoid; }
+    .week-grid { grid-template-columns: repeat(7, 1fr); }
+    .day-cell { min-height: 44px; }
+    .day-hrs { font-size: 16px; }
+    .week-total { border: 2px solid #000; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Auto Tech RO Tracker</h1>
+  <nav>
+    <a class="active" data-view="scanner">Scanner</a>
+    <a data-view="log">RO Log</a>
+    <a data-view="weekly">Weekly Hours</a>
+    <a data-view="settings">Settings</a>
+  </nav>
+</header>
+
+<main>
+
+  <section id="view-scanner" class="card">
+    <h2>Scan a Repair Order</h2>
+    <p style="font-size:14px;color:var(--muted);margin:0 0 12px 0;">Take a clear photo of the RO or upload one. The app reads the RO number, date, collected lines, and suggests hours.</p>
+
+    <div class="row" style="margin-bottom:10px;">
+      <button class="btn" id="camera-btn">Camera</button>
+      <button class="btn secondary" id="upload-btn">Upload Photo</button>
+      <input type="file" id="file-input" accept="image/*" style="display:none;">
+      <button class="btn secondary" id="clear-btn">Clear</button>
+    </div>
+
+    <div id="video-box">
+      <video id="video" playsinline autoplay></video>
+      <div id="scan-frame"></div>
+    </div>
+
+    <div class="scan-actions">
+      <button class="btn" id="snap-btn" disabled>Take Photo</button>
+      <button class="btn secondary" id="scan-btn" disabled>Scan / OCR</button>
+    </div>
+
+    <input type="checkbox" id="show-frame" checked>
+    <label for="show-frame" style="font-size:13px;color:var(--muted);margin-top:4px;">Show scan frame overlay</label>
+
+    <div id="photo-preview"></div>
+
+    <div id="ocr-panel">
+      <h3 style="font-size:15px;margin:14px 0 8px 0;">Recognized</h3>
+      <div class="field-grid">
+        <div class="field">
+          <label>RO Number</label>
+          <input id="ro-number" type="text" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input id="ro-date" type="date">
+        </div>
+        <div class="field">
+          <label>Job Type</label>
+          <select id="job-type">
+            <option value="Repair">Repair</option>
+            <option value="Diagnostics">Diagnostics</option>
+            <option value="Oil Change">Oil Change</option>
+            <option value="Inspection">Inspection</option>
+            <option value="Tires">Tires</option>
+            <option value="Misc">Miscellaneous</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Labor Hours</label>
+          <div class="row">
+            <input id="hours" type="number" step="0.25" min="0" value="0" style="flex:1;">
+            <button class="btn secondary" style="padding:10px 12px;font-size:13px;" id="suggest-btn">Suggested</button>
+          </div>
+          <div id="suggested-hours" style="font-size:13px;color:var(--muted);margin-top:4px;"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Collected Lines (check the ones used)</label>
+        <div id="lines-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:30px;align-items:center;"></div>
+        <div style="margin-top:6px;">
+          <button class="btn secondary" style="padding:4px 10px;font-size:12px;" id="add-line-btn">+ Add line</button>
+          <input id="new-line" type="text" style="width:160px;font-size:13px;" placeholder="e.g. Brake Pads">
+        </div>
+      </div>
+      <div class="field">
+        <div id="ocr-notes" style="font-size:13px;color:var(--muted);margin-top:4px;"></div>
+      </div>
+      <button class="btn" id="add-to-log-btn" style="width:100%;margin-top:10px;">Add to RO Log</button>
+    </div>
+  </section>
+
+  <section id="view-log" class="card" style="display:none;">
+    <h2>RO Log</h2>
+    <div class="row" style="margin-bottom:10px;">
+      <input id="log-search" type="text" placeholder="Search RO number, type, lines…" style="width:260px;">
+      <button class="btn secondary" id="export-btn">Export CSV</button>
+      <button class="btn secondary" id="clear-log-btn">Clear all</button>
+    </div>
+    <div id="ro-body"></div>
+  </section>
+
+  <section id="view-weekly" class="card" style="display:none;">
+    <h2>Weekly Hours — Sunday to Saturday</h2>
+    <div class="week-nav">
+      <button id="prev-week">Prev</button>
+      <span id="week-label" style="font-weight:600;"></span>
+      <button id="next-week">Next</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 10px 0;">Click any day to add labor for that date. <span id="workable-note"></span></p>
+    <div class="week-grid" id="week-grid"></div>
+    <div class="week-total">
+      <span class="label">Week Total (Sun–Sat)</span>
+      <span class="value" id="week-total">0.0</span>
+    </div>
+    <div class="field" style="margin-top:10px;">
+      <label>Print this week (US Letter PDF)</label>
+      <button class="btn secondary" id="print-btn">Print Weekly Summary</button>
+    </div>
+  </section>
+
+  <section id="view-settings" class="card" style="display:none;">
+    <h2>Settings</h2>
+    <div class="card" style="padding:14px;">
+      <h3 style="font-size:15px;margin:0 0 8px 0;">Job Types — default hours per type</h3>
+      <div id="settings-list" style="max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:6px 0;"></div>
+      <button class="btn secondary" style="margin-top:8px;font-size:13px;padding:6px 12px;" id="add-type-btn">+ Add job type</button>
+    </div>
+    <div class="card" style="padding:14px;">
+      <h3 style="font-size:15px;margin:0 0 8px 0;">Default collected lines</h3>
+      <div id="lines-defaults" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      <button class="btn secondary" style="margin-top:8px;font-size:13px;padding:6px 12px;" id="add-line-defaults-btn">+ Add line</button>
+      <input id="new-line-default" type="text" style="width:160px;font-size:13px;" placeholder="e.g. Fluids">
+    </div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+
+</main>
+
+<footer>Local web app · data saved in this browser (localStorage)</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+/* ================= DATA ================= */
+const STORAGE_KEY = 'auto_ro_tracker_v1';
+let state = load();
+
+function defaultState() {
+  return {
+    roLog: [],
+    jobTypeDefaults: { Repair: 1.5, Diagnostics: 0.5, 'Oil Change': 0.5, Inspection: 0.25, Tires: 0.5, Misc: 0 },
+    linesDefaults: ['Brake Pads','Oil Filter','Air Filter','Wiper Blades','Fluids','Battery','Brakes','Tires'],
+  };
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) { const parsed = JSON.parse(raw); return Object.assign(defaultState(), parsed); }
+  } catch(e) { console.warn('load failed', e); }
+  return defaultState();
+}
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) { console.warn('save failed', e); }
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* ================= HELPERS ================= */
+const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DAY_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAY_SHORT_SORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function parseDate(str) { const [y,m,d] = str.split('-').map(Number); return new Date(y, m-1, d); }
+function formatDateUS(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+day;
+}
+function todayStr() { return formatDateUS(new Date()); }
+function dateToLabel(d) { return DAY_SHORT[d.getDay()] + ' ' + d.getDate() + ' ' + (d.getMonth()+1); }
+function sundayOfWeek(d) {
+  const copy = new Date(d);
+  const diff = copy.getDay();
+  copy.setDate(copy.getDate() - diff);
+  return formatDateUS(copy);
+}
+function getWeekDates(sun) {
+  const dates = [];
+  const sd = parseDate(sun);
+  for (let i=0;i<7;i++) { const d = new Date(sd); d.setDate(d.getDate() + i); dates.push(formatDateUS(d)); }
+  return dates;
+}
+function formatHours(n) { return n.toFixed(2); }
+function getHoursForDate(dateStr) { return state.roLog.filter(r => r.date === dateStr).reduce((sum,r) => sum + (r.hours||0), 0); }
+function saveSettings() { save(); }
+
+/* ================= RENDER ================= */
+function showView(name) {
+  document.querySelectorAll('main section').forEach(s => s.style.display = 'none');
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  const sec = document.getElementById('view-'+name);
+  if (sec) sec.style.display = 'block';
+  document.querySelectorAll('nav a').forEach(a => { if (a.dataset.view === name) a.classList.add('active'); });
+  if (name === 'weekly') renderWeekly();
+  if (name === 'log') renderLog();
+  if (name === 'settings') renderSettings();
+  window.scrollTo(0,0);
+}
+
+function renderLog() {
+  const tbody = document.getElementById('ro-body');
+  const q = (document.getElementById('log-search')||'').value.trim().toLowerCase();
+  const rows = state.roLog.slice().sort((a,b) => (b.ts||0) - (a.ts||0));
+  const filtered = q ? rows.filter(r =>
+    (r.roNumber||'').toLowerCase().includes(q) ||
+    (r.jobType||'').toLowerCase().includes(q) ||
+    (r.lines||[]).some(l => l.toLowerCase().includes(q))
+  ) : rows;
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No RO records yet. Go to Scanner to add one.</td></tr>`;
+    return;
+  }
+  let html = `<tr><th>RO #</th><th>Date</th><th>Type</th><th>Lines</th><th>Hours</th><th></th></tr>`;
+  for (const r of filtered) {
+    const lines = (r.lines||[]).join(', ');
+    html += `<tr>
+      <td><strong>${escapeHtml(r.roNumber||'')}</strong></td>
+      <td>${r.date || ''}</td>
+      <td><span class="badge">${escapeHtml(r.jobType||'')}</span></td>
+      <td style="font-size:13px;">${escapeHtml(lines) || '—'}</td>
+      <td style="text-align:right;">${formatHours(r.hours||0)}</td>
+      <td style="white-space:nowrap;"><button class="btn secondary" style="padding:4px 10px;font-size:12px;" data-del="${r.id}">Delete</button></td>
+    </tr>`;
+  }
+  tbody.innerHTML = html;
+  tbody.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+    if (confirm('Delete this RO?')) {
+      state.roLog = state.roLog.filter(r => r.id !== b.dataset.del);
+      save(); renderLog(); renderWeekly(); toast('RO deleted.');
+    }
+  }));
+}
+
+function renderSettings() {
+  const list = document.getElementById('settings-list');
+  let html = '';
+  for (const [type, hrs] of Object.entries(state.jobTypeDefaults)) {
+    html += `<div class="setting">
+      <span style="flex:0 0 150px;font-weight:500;">${escapeHtml(type)}</span>
+      <input type="number" step="0.25" min="0" value="${hrs}" data-type="${escapeHtml(type)}">
+      <span style="color:var(--muted);font-size:12px;">hrs</span>
+    </div>`;
+  }
+  list.innerHTML = html;
+  list.querySelectorAll('input[type=number]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const t = inp.dataset.type;
+      if (t && state.jobTypeDefaults[t] !== parseFloat(inp.value)) {
+        state.jobTypeDefaults[t] = parseFloat(inp.value) || 0;
+        save(); renderSettings(); toast('Saved.');
+      }
+    });
+  });
+  const ld = document.getElementById('lines-defaults');
+  ld.innerHTML = state.linesDefaults.map(l => `<span class="badge">${escapeHtml(l)}</span>`).join('');
+}
+
+function renderWeekly() {
+  const now = new Date();
+  const sun = sundayOfWeek(formatDateUS(now));
+  const dates = getWeekDates(sun);
+  const label = 'Week of ' + DAY_SHORT[parseDate(sun).getDay()] + ' ' + parseDate(sun).getDate() + ' - ' + DAY_SHORT[parseDate(dates[6]).getDay()] + ' ' + parseDate(dates[6]).getDate();
+  document.getElementById('week-label').textContent = label;
+
+  const grid = document.getElementById('week-grid');
+  let html = '';
+  for (let i=0;i<7;i++) {
+    const d = parseDate(dates[i]);
+    const workable = getHoursForDate(dates[i]) > 0;
+    const today = (d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate());
+    const dayCls = 'day-cell ' + (workable?'workable':'') + (today?'today':'') + ' ';
+    html += '<div class="' + dayCls.trim() + '" data-date="' + dates[i] + '">' +
+      '<div class="day-name">' + DAY_SHORT_SORT[i] + ' ' + d.getDate() + '</div>' +
+      '<div class="day-hrs">' + formatHours(getHoursForDate(dates[i])) + '</div>' +
+      '<div class="day-edit">Add hours</div>' +
+    '</div>';
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('.day-cell').forEach(cell => {
+    cell.addEventListener('click', () => { const date = cell.dataset.date; addHoursToDate(date); });
+  });
+
+  const total = dates.reduce((s,d) => s + getHoursForDate(d), 0);
+  document.getElementById('week-total').textContent = formatHours(total);
+
+  const workableNotes = dates.filter(d => getHoursForDate(d) > 0).map(d => d);
+  const note = document.getElementById('workable-note');
+  if (workableNotes.length) {
+    note.textContent = 'Workable dates: ' + workableNotes.map(d => dateToLabel(parseDate(d))).join(', ') + ' (' + formatHours(workableNotes.reduce((s,d)=>s+getHoursForDate(d),0)) + ' hrs)';
+  } else {
+    note.textContent = 'No work on this week yet — click any day to add hours.';
+  }
+}
+
+
+/* ================= SCANNER OCR ================= */
+let scannerCamera = null;
+
+async function startCamera() {
+  const box = document.getElementById('video-box');
+  const video = document.getElementById('video');
+  box.style.display = 'block';
+  box.querySelector('canvas').style.display = 'none';
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+    video.srcObject = stream;
+    await video.play();
+    scannerCamera = stream;
+    document.getElementById('snap-btn').disabled = false;
+    document.getElementById('scan-btn').disabled = false;
+  } catch(e) {
+    toast('Camera access denied. Use Upload instead.');
+    console.warn('camera error', e);
+  }
+}
+function stopCamera() {
+  if (scannerCamera) {
+    scannerCamera.getTracks().forEach(t => t.stop());
+    scannerCamera = null;
+  }
+  document.getElementById('video').srcObject = null;
+  document.getElementById('video-box').style.display = 'none';
+  document.getElementById('snap-btn').disabled = true;
+  document.getElementById('scan-btn').disabled = true;
+}
+
+async function capturePhoto() {
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const w = video.videoWidth || 640;
+  const h = video.videoHeight || 480;
+  canvas.width = w; canvas.height = h;
+  ctx.drawImage(video, 0, 0, w, h);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  document.getElementById('photo-preview').innerHTML = '<img src="' + dataUrl + '">';
+  document.getElementById('photo-preview').style.display = 'block';
+  document.getElementById('ocr-panel').style.display = 'block';
+  runOCR(dataUrl);
+}
+
+async function runOCR(imageUrl) {
+  const status = document.getElementById('ocr-notes');
+  status.textContent = 'Reading text…';
+  try {
+    const { data } = await Tesseract.recognize(imageUrl, 'eng', {
+      logger: (m) => { status.textContent = m.status; }
+    });
+    status.textContent = '';
+    const text = data.text || '';
+    parseOCR(text);
+  } catch(e) {
+    status.textContent = 'OCR failed: ' + e.message;
+    toast('OCR failed');
+  }
+}
+
+function parseOCR(text) {
+  let t = text.replace(/\s+/g, ' ').trim();
+
+  // RO number
+  let ro = '';
+  const roPatterns = [
+    /(?:^|\s)(RO[-#]\s*\d{2,6}|RO\s*\d{2,6})(?=\s|$)/i,
+    /(\d{4,6})(?=\s|$)/
+  ];
+  for (const pat of roPatterns) {
+    const m = t.match(pat);
+    if (m) { ro = m[1].replace(/[^A-Za-z0-9]/g, ''); break; }
+  }
+  document.getElementById('ro-number').value = ro || '';
+
+  // Date
+  let date = todayStr();
+  const datePatterns = [
+    /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/,
+    /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{2,4})/i,
+    /(\d{2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4})/i,
+  ];
+  for (const pat of datePatterns) {
+    const m = t.match(pat);
+    if (m) { date = parseOCRDate(m[1]); if (date) break; }
+  }
+  document.getElementById('ro-date').value = date || '';
+
+  // Job type
+  const lower = t.toLowerCase();
+  let jobType = 'Repair';
+  if (lower.includes('diag') || lower.includes('diagnosis') || lower.includes('tester') || lower.includes('scan tool')) {
+    jobType = 'Diagnostics';
+  } else if (lower.includes('oil') || lower.includes('lube')) {
+    jobType = 'Oil Change';
+  } else if (lower.includes('check') || lower.includes('inspect') || lower.includes('rotation')) {
+    jobType = 'Inspection';
+  } else if (lower.includes('tire') || lower.includes('wheel')) {
+    jobType = 'Tires';
+  }
+  document.getElementById('job-type').value = jobType;
+
+  // Lines
+  const lines = splitLines(t).map(l => l.trim()).filter(l => l.length > 1 && !noiseWord(l));
+  const defaults = state.linesDefaults;
+  const detected = lines.filter(l => defaults.some(d => d.toLowerCase() === l.toLowerCase())).slice(0, 12);
+  renderLines(detected);
+
+  // Suggested hours
+  const suggested = state.jobTypeDefaults[jobType] || 0;
+  document.getElementById('hours').value = '';
+  document.getElementById('suggested-hours').textContent = suggested ? 'Suggested: ' + formatHours(suggested) + ' hrs for "' + jobType + '"' : '';
+}
+
+function parseOCRDate(str) {
+  const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) {
+    let [, mm, dd, yy] = m;
+    let year = Number(yy);
+    if (year < 100) year += year < 70 ? 2000 : 1900;
+    const d = new Date(year, Number(mm)-1, Number(dd));
+    if (d.getDate() === Number(dd) && d.getMonth() === Number(mm)-1) return formatDateUS(d);
+  }
+  const m2 = str.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{2,4})$/);
+  if (m2) {
+    const months = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+    const mm = months[m2[2].toLowerCase().slice(0,3)];
+    if (mm) {
+      let year = Number(m2[3]);
+      if (year < 100) year += year < 70 ? 2000 : 1900;
+      const d = new Date(year, mm-1, Number(m2[1]));
+      if (d.getDate() === Number(m2[1]) && d.getMonth() === mm-1) return formatDateUS(d);
+    }
+  }
+  return null;
+}
+
+function noiseWord(w) {
+  const noise = ['ro','date','time','customer','vehicle','vin','make','model','odometer','mileage','oil','filter','air','wipers','brakes','tires','tire','wheel','battery','fluids','maintenance','service','repair','diagnostic','replace','inspect','check','torque','wrench','tools','scan','tool'];
+  return noise.includes(w.toLowerCase());
+}
+
+function splitLines(text) { return text.split(/\n/).map(l => l.trim()).filter(Boolean); }
+
+function renderLines(detected) {
+  const container = document.getElementById('lines-list');
+  container.innerHTML = '';
+  if (!detected.length) {
+    container.textContent = '— none detected from scan —';
+  } else {
+    for (const l of detected) {
+      const chip = document.createElement('span');
+      chip.className = 'line-chip';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = true;
+      cb.addEventListener('change', () => {
+        if (!cb.checked) {
+          const copy = detected.slice();
+          copy.splice(detected.indexOf(l), 1);
+          renderLines(copy);
+        }
+      });
+      const span = document.createElement('span');
+      span.textContent = l;
+      chip.appendChild(cb);
+      chip.appendChild(span);
+      container.appendChild(chip);
+    }
+  }
+}
+
+/* ================= HOURS MODAL ================= */
+function addHoursToDate(date) {
+  const existing = state.roLog.filter(r => r.date === date);
+  const current = getHoursForDate(date);
+  if (existing.length) {
+    if (!confirm('This date already has ROs. Add ' + formatHours(current) + ' more hours?')) return;
+  }
+  const hours = parseFloat(prompt('Enter labor hours for this date?', current || 0)) || 0;
+  if (hours < 0) { toast('Hours must be 0 or more.'); return; }
+  if (hours === 0) { toast('No hours added.'); return; }
+  if (!state.roLog.some(r => r.date === date)) {
+    state.roLog.push({ id: uid(), roNumber: 'manual', date, jobType: 'Misc', hours, lines: [], ts: Date.now() });
+  }
+  save(); renderLog(); renderWeekly();
+  toast('Added ' + formatHours(hours) + ' hrs to ' + dateToLabel(parseDate(date)) + '.');
+}
+
+/* ================= ACTIONS ================= */
+function addToLog() {
+  const roNumber = document.getElementById('ro-number').value.trim();
+  const date = document.getElementById('ro-date').value;
+  const jobType = document.getElementById('job-type').value;
+  let hours = parseFloat(document.getElementById('hours').value);
+  if (isNaN(hours) || hours < 0) { hours = 0; }
+  const checked = document.querySelectorAll('#lines-list .line-chip input:checked');
+  const lines = [];
+  checked.forEach(cb => {
+    const span = cb.nextElementSibling;
+    if (span) lines.push(span.textContent.trim());
+  });
+
+  if (!roNumber && !date) { toast('Enter RO number or date.'); return; }
+  if (!date) { toast('Enter a date.'); return; }
+  if (hours <= 0) { toast('Enter labor hours.'); return; }
+  if (!lines.length) { toast('No collected lines selected.'); return; }
+
+  const entry = { id: uid(), roNumber: roNumber || '(none)', date, jobType, hours, lines, ts: Date.now() };
+  state.roLog.push(entry);
+  save();
+
+  document.getElementById('ro-number').value = '';
+  document.getElementById('ro-date').value = '';
+  document.getElementById('job-type').value = 'Repair';
+  document.getElementById('hours').value = '0';
+  document.getElementById('lines-list').innerHTML = '';
+  document.getElementById('ocr-panel').style.display = 'none';
+  document.getElementById('photo-preview').style.display = 'none';
+  renderLog(); renderWeekly();
+  toast('Added ' + (roNumber||'(none)') + ' - ' + formatHours(hours) + ' hrs, ' + lines.length + ' line(s).');
+}
+
+/* ================= TOAST ================= */
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function exportCSV() {
+  if (!state.roLog.length) { toast('No RO records to export.'); return; }
+  const header = ['RO Number','Date','Job Type','Lines','Hours','Notes'];
+  const rows = state.roLog.map(r => [
+    r.roNumber || '',
+    r.date || '',
+    r.jobType || '',
+    (r.lines || []).join('; '),
+    r.hours || 0,
+    r.notes || ''
+  ]);
+  const csv = [header.join(','), ...rows.map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ro-log-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Exported ' + state.roLog.length + ' RO(s).');
+}
+
+/* ================= INIT ================= */
+function init() {
+  document.addEventListener('DOMContentLoaded', () => {
+    showView('scanner');
+  });
+
+  document.querySelectorAll('nav a').forEach(a => {
+    a.addEventListener('click', () => showView(a.dataset.view));
+  });
+
+  document.getElementById('camera-btn').addEventListener('click', startCamera);
+  document.getElementById('clear-btn').addEventListener('click', () => {
+    stopCamera();
+    document.getElementById('photo-preview').innerHTML = '';
+    document.getElementById('photo-preview').style.display = 'none';
+    document.getElementById('ocr-panel').style.display = 'none';
+    document.getElementById('ro-number').value = '';
+    document.getElementById('ro-date').value = '';
+    document.getElementById('job-type').value = 'Repair';
+    document.getElementById('hours').value = '0';
+    document.getElementById('lines-list').innerHTML = '';
+    document.getElementById('ocr-notes').textContent = '';
+  });
+  document.getElementById('upload-btn').addEventListener('click', () => document.getElementById('file-input').click());
+  document.getElementById('file-input').addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => { runOCR(reader.result); };
+    reader.readAsDataURL(f);
+  });
+  document.getElementById('snap-btn').addEventListener('click', capturePhoto);
+  document.getElementById('scan-btn').addEventListener('click', () => {
+    const box = document.getElementById('video-box');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const w = box.clientWidth || 640;
+    const h = box.clientHeight || 480;
+    canvas.width = w; canvas.height = h;
+    ctx.drawImage(document.getElementById('video'), 0, 0, w, h);
+    capturePhoto();
+  });
+  document.getElementById('show-frame').addEventListener('change', e => {
+    document.getElementById('scan-frame').classList.toggle('show', e.target.checked);
+  });
+  document.getElementById('suggest-btn').addEventListener('click', () => {
+    const v = document.getElementById('hours');
+    v.value = document.getElementById('suggested-hours').textContent.replace('Suggested: ','');
+  });
+  document.getElementById('add-line-btn').addEventListener('click', () => {
+    const inp = document.getElementById('new-line');
+    if (inp.value.trim()) {
+      state.linesDefaults.push(inp.value.trim());
+      save();
+      renderSettings();
+      renderLog();
+      renderWeekly();
+      inp.value = '';
+    }
+  });
+  document.getElementById('new-line').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('add-line-btn').click(); });
+
+  document.getElementById('add-to-log-btn').addEventListener('click', addToLog);
+
+  document.getElementById('log-search').addEventListener('input', renderLog);
+  document.getElementById('export-btn').addEventListener('click', exportCSV);
+  document.getElementById('clear-log-btn').addEventListener('click', () => {
+    if (state.roLog.length && confirm('Delete all RO records?')) {
+      state.roLog = [];
+      save(); renderLog(); renderWeekly(); toast('Log cleared.');
+    }
+  });
+
+  document.getElementById('prev-week').addEventListener('click', () => {
+    const now = new Date();
+    const sun = sundayOfWeek(formatDateUS(now));
+    const d = parseDate(sun);
+    d.setDate(d.getDate() - 7);
+    renderWeeklyWithSun(formatDateUS(d));
+    renderLog();
+  });
+  document.getElementById('next-week').addEventListener('click', () => {
+    const now = new Date();
+    const sun = sundayOfWeek(formatDateUS(now));
+    const d = parseDate(sun);
+    d.setDate(d.getDate() + 7);
+    renderWeeklyWithSun(formatDateUS(d));
+    renderLog();
+  });
+  document.getElementById('print-btn').addEventListener('click', printWeekly);
+
+  document.getElementById('add-type-btn').addEventListener('click', () => {
+    const t = prompt('New job type name:');
+    if (t && t.trim()) {
+      state.jobTypeDefaults[t.trim()] = 0;
+      save(); renderSettings(); toast('Type added.');
+    }
+  });
+  document.getElementById('add-line-defaults-btn').addEventListener('click', () => {
+    const inp = document.getElementById('new-line-default');
+    if (inp.value.trim()) {
+      state.linesDefaults.push(inp.value.trim());
+      save(); renderSettings();
+      inp.value = '';
+    }
+  });
+  document.getElementById('new-line-default').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('add-line-defaults-btn').click();
+  });
+
+  renderWeekly();
+}
+
+function renderWeeklyWithSun(sun) {
+  const dates = getWeekDates(sun);
+  const label = 'Week of ' + DAY_SHORT[parseDate(sun).getDay()] + ' ' + parseDate(sun).getDate() + ' - ' + DAY_SHORT[parseDate(dates[6]).getDay()] + ' ' + parseDate(dates[6]).getDate();
+  document.getElementById('week-label').textContent = label;
+  const grid = document.getElementById('week-grid');
+  let html = '';
+  for (let i=0;i<7;i++) {
+    const d = parseDate(dates[i]);
+    const workable = getHoursForDate(dates[i]) > 0;
+    const today = (d.getFullYear()===new Date().getFullYear() && d.getMonth()===new Date().getMonth() && d.getDate()===new Date().getDate());
+    const dayCls = 'day-cell ' + (workable?'workable':'') + (today?'today':'') + ' ';
+    html += '<div class="' + dayCls.trim() + '" data-date="' + dates[i] + '">' +
+      '<div class="day-name">' + DAY_SHORT_SORT[i] + ' ' + d.getDate() + '</div>' +
+      '<div class="day-hrs">' + formatHours(getHoursForDate(dates[i])) + '</div>' +
+      '<div class="day-edit">Add hours</div>' +
+    '</div>';
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('.day-cell').forEach(cell => {
+    cell.addEventListener('click', () => addHoursToDate(cell.dataset.date));
+  });
+  const total = dates.reduce((s,d) => s + getHoursForDate(d), 0);
+  document.getElementById('week-total').textContent = formatHours(total);
+  const workableNotes = dates.filter(d => getHoursForDate(d) > 0).map(d => d);
+  const note = document.getElementById('workable-note');
+  if (workableNotes.length) {
+    note.textContent = 'Workable dates: ' + workableNotes.map(d => dateToLabel(parseDate(d))).join(', ') + ' (' + formatHours(workableNotes.reduce((s,d)=>s+getHoursForDate(d),0)) + ' hrs)';
+  } else {
+    note.textContent = 'No work on this week yet — click any day to add hours.';
+  }
+}
+
+function printWeekly() {
+  const now = new Date();
+  const sun = sundayOfWeek(formatDateUS(now));
+  renderWeeklyWithSun(sun);
+  window.print();
+}
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('service-worker.js').catch(() => {});
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
