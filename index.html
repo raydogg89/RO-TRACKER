@@ -215,6 +215,14 @@
     </div>
 
     <div class="scan-actions">
+    
+    <div id="camera-perm" style="margin-top:8px;font-size:13px;color:var(--muted);">
+      <span id="camera-perm-status">Camera access: not checked</span>
+      <span id="camera-perm-hint" style="display:none;color:var(--accent-dark);font-size:12px;">
+        On the first use, tap "Camera" and allow access when prompted.
+      </span>
+    </div>
+
       <button class="btn" id="snap-btn" disabled>Take Photo</button>
       <button class="btn secondary" id="scan-btn" disabled>Scan / OCR</button>
     </div>
@@ -867,6 +875,7 @@ function importCSV(file) {
 function init() {
   document.addEventListener('DOMContentLoaded', () => {
     showView('scanner');
+    checkCameraPermission();
   });
 
   document.querySelectorAll('nav a').forEach(a => {
@@ -874,7 +883,7 @@ function init() {
   });
 
   // Scanner
-  document.getElementById('camera-btn').addEventListener('click', startCamera);
+  document.getElementById('camera-btn').addEventListener('click', startCameraWithPermission);
   document.getElementById('clear-btn').addEventListener('click', () => {
     stopCamera();
     document.getElementById('photo-preview').innerHTML = '';
@@ -1067,3 +1076,124 @@ document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
+
+
+
+/* ================= CAMERA PERMISSION ================= */
+function checkCameraPermission() {
+  if (!navigator.permissions) {
+    // Permissions API not available
+    setCameraPermissionStatus('not_supported');
+    document.getElementById('camera-perm-hint').style.display = 'block';
+    console.warn('Permissions API not supported');
+    return;
+  }
+
+  navigator.permissions.query({ name: 'camera' }).then(function(permStatus) {
+    setCameraPermissionStatus(permStatus.state);
+    permStatus.onchange = function() {
+      setCameraPermissionStatus(permStatus.state);
+    };
+  }).catch(function(err) {
+    setCameraPermissionStatus('prompt');
+    console.warn('Permission check error:', err);
+  });
+}
+
+function setCameraPermissionStatus(state) {
+  const statusEl = document.getElementById('camera-perm-status');
+  const hintEl = document.getElementById('camera-perm-hint');
+  if (!statusEl) return;
+
+  switch (state) {
+    case 'granted':
+      statusEl.textContent = 'Camera access: granted ✓';
+      statusEl.style.color = '#16563f';
+      document.getElementById('camera-perm-hint').style.display = 'none';
+      break;
+    case 'denied':
+      statusEl.textContent = 'Camera access: denied — tap Camera to try again';
+      statusEl.style.color = '#b3261e';
+      document.getElementById('camera-perm-hint').style.display = 'block';
+      break;
+    case 'prompt':
+      statusEl.textContent = 'Camera access: not yet checked — tap Camera to use';
+      statusEl.style.color = '#6b7280';
+      document.getElementById('camera-perm-hint').style.display = 'block';
+      break;
+    case 'not_supported':
+      statusEl.textContent = 'Camera access: not supported in this browser';
+      statusEl.style.color = '#6b7280';
+      document.getElementById('camera-perm-hint').style.display = 'none';
+      break;
+  }
+}
+
+function handleCameraPermissionError(error) {
+  const statusEl = document.getElementById('camera-perm-status');
+  if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+    statusEl.textContent = 'Camera access denied — tap Camera and allow when prompted';
+    statusEl.style.color = '#b3261e';
+    document.getElementById('camera-perm-hint').style.display = 'block';
+    toast('Camera access was denied. Please allow it in your browser settings.');
+  } else if (error.name === 'NotFoundError') {
+    statusEl.textContent = 'No camera found — use Upload Photo instead';
+    statusEl.style.color = '#6b7280';
+    document.getElementById('camera-perm-hint').style.display = 'block';
+  } else {
+    statusEl.textContent = 'Camera error: ' + error.message;
+    statusEl.style.color = '#b3261e';
+  }
+}
+
+function startCameraWithPermission() {
+  const box = document.getElementById('video-box');
+  const video = document.getElementById('video');
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    handleCameraPermissionError({ name: 'NotFoundError', message: 'getUserMedia not supported' });
+    return;
+  }
+
+  // Check permission state first
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: 'camera' }).then(function(permStatus) {
+      if (permStatus.state === 'denied') {
+        handleCameraPermissionError({ name: 'PermissionDeniedError', message: 'Camera access denied' });
+        return;
+      }
+      // If granted or prompt, proceed with camera
+      startCameraInternal();
+    }).catch(function(err) {
+      startCameraInternal();
+    });
+  } else {
+    // Permissions API not available, start camera directly
+    startCameraInternal();
+  }
+}
+
+function startCameraInternal() {
+  const box = document.getElementById('video-box');
+  const video = document.getElementById('video');
+  box.style.display = 'block';
+  box.querySelector('canvas').style.display = 'none';
+  try {
+    const stream = navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+    video.srcObject = stream;
+    video.play().then(() => {
+      scannerCamera = stream;
+      document.getElementById('snap-btn').disabled = false;
+      document.getElementById('scan-btn').disabled = false;
+      setCameraPermissionStatus('granted');
+    }).catch(function(e) {
+      handleCameraPermissionError({ name: 'NotFound', message: 'Camera playback error' });
+    });
+  } catch(e) {
+    handleCameraPermissionError({ name: 'NotFoundError', message: 'Camera start error' });
+  }
+}
+
+// Override the original startCamera function to use permission-aware version
+const _origStartCamera = startCamera;
+startCamera = startCameraWithPermission;
