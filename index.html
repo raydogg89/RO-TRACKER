@@ -257,47 +257,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js">
-function exportCSV() {
-  let csv = 'RO #,Date,Type,Lines,Hours
-';
-  for (const r of state.roLog) {
-    csv += `${r.roNumber || ''},${r.date || ''},${r.jobType || ''},${r.lines ? r.lines.join(';') : ''},${r.hours || 0}\n`;
-  }
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'ro-log.csv';
-  a.click();
-  URL.revokeObjectURL(a.href);
-  toast('CSV exported.');
-}
-
-function importCSV() {
-  const input = document.getElementById('scan-file-input');
-  if (!input.files.length) { toast('Select a CSV file first.'); return; }
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const lines = e.target.result.split('\n');
-    for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      const cols = lines[i].split(',');
-      const ro = cols[0] || '';
-      const date = cols[1] || '';
-      const type = cols[2] || 'misc';
-      const linesVal = cols[3] || '';
-      const hours = parseFloat(cols[4]) || 0;
-      if (ro || date) {
-        state.roLog.push({ id: uid(), roNumber: ro, date, jobType: type, hours, lines: linesVal.split(';'), ts: Date.now() });
-      }
-    }
-    save(); renderLog(); renderWeekly(); markDirty(); showSaveIndicator();
-    toast(`Imported ${state.roLog.length} ROs.`);
-  };
-  reader.readAsText(input.files[0]);
-  input.value = '';
-}
-</script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 /* ================= DATA ================= */
 const STORAGE_KEY = 'auto_ro_tracker_v1';
